@@ -1,9 +1,10 @@
 {
-  "name": "multiplayer-chess",
+  "name": "chess.in",
   "version": "1.0.0",
-  "description": "Real-Time Multiplayer Chess Game with Node.js, Socket.IO, React, and SQLite",
+  "description": "Real-Time Multiplayer Chess Platform",
   "type": "module",
   "scripts": {
+    "build": "npm --prefix client install && npm --prefix client run build && npm --prefix server install",
     "start": "node server/server.js",
     "dev:server": "node --watch server/server.js",
     "dev:client": "npm --prefix client run dev",

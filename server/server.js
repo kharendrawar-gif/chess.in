@@ -3,6 +3,8 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { initDatabase } from './src/config/db.js';
 import { roomManager } from './src/game/RoomManager.js';
 import { registerRoomHandlers } from './src/sockets/roomHandler.js';
@@ -12,10 +14,14 @@ import leaderboardRoutes from './src/routes/leaderboardRoutes.js';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const distPath = path.resolve(__dirname, '../client/dist');
+
 const app = express();
 const server = http.createServer(app);
 
-// Allow Cross-Origin Requests from frontend
+// Allow Cross-Origin Requests
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST'],
@@ -37,6 +43,20 @@ app.get('/api/health', (req, res) => {
 
 app.get('/api/rooms', (req, res) => {
   res.json(roomManager.getPublicRooms());
+});
+
+// Serve compiled React frontend in production
+app.use(express.static(distPath));
+
+// SPA Fallback for any client route
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) {
+    return next();
+  }
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) next();
+  });
 });
 
 // Initialize Socket.IO with WebSocket + polling transports
@@ -67,9 +87,8 @@ initDatabase()
   .then(() => {
     server.listen(PORT, () => {
       console.log(`=========================================`);
-      console.log(`  Chess Game Server running on port ${PORT}`);
-      console.log(`  SQLite Database & Leaderboard Active`);
-      console.log(`  Socket.IO active for real-time play`);
+      console.log(`  Chess.in Server running on port ${PORT}`);
+      console.log(`  Serving WebSockets, API & React Frontend`);
       console.log(`=========================================`);
     });
   })
