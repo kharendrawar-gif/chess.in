@@ -1,0 +1,29 @@
+{
+  "name": "multiplayer-chess",
+  "version": "1.0.0",
+  "description": "Real-Time Multiplayer Chess Game with Node.js, Socket.IO, React, and SQLite",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev:server": "node --watch server/server.js",
+    "dev:client": "npm --prefix client run dev",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build:client": "npm --prefix client run build",
+    "install:all": "npm --prefix server install && npm --prefix client install"
+  },
+  "keywords": [
+    "chess",
+    "multiplayer",
+    "socketio",
+    "websockets",
+    "react",
+    "nodejs",
+    "sqlite",
+    "computer-science"
+  ],
+  "author": "CS Student",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}
