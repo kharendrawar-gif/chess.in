@@ -94,6 +94,7 @@ export function registerGameHandlers(io, socket) {
     let eloChanges = null;
 
     if (isCheckmate) {
+      roomManager.stopTimer(room.id);
       winner = currentTurn;
       room.status = 'finished';
       endReason = 'checkmate';
@@ -104,6 +105,7 @@ export function registerGameHandlers(io, socket) {
         endReason
       );
     } else if (isDraw) {
+      roomManager.stopTimer(room.id);
       room.status = 'finished';
       if (room.chess.isStalemate()) endReason = 'stalemate';
       else if (room.chess.isThreefoldRepetition()) endReason = 'threefold repetition';
@@ -116,6 +118,8 @@ export function registerGameHandlers(io, socket) {
         'draw',
         endReason
       );
+    } else if (room.timers) {
+      room.timers.lastTurnTimestamp = Date.now();
     }
 
     // Broadcast validated move state to both players
@@ -123,6 +127,7 @@ export function registerGameHandlers(io, socket) {
       fen: room.chess.fen(),
       lastMove: { from, to, san: moveResult.san, piece: moveResult.piece },
       turn: room.chess.turn(),
+      timers: room.timers ? { white: Math.ceil(room.timers.white), black: Math.ceil(room.timers.black) } : null,
       history: room.chess.history({ verbose: true }),
       captured: getCapturedPieces(room.chess),
       isCheck,
@@ -154,6 +159,7 @@ export function registerGameHandlers(io, socket) {
       return;
     }
 
+    roomManager.stopTimer(room.id);
     room.status = 'finished';
     const eloChanges = recordMatchResult(
       room.players.white.username,
@@ -188,6 +194,7 @@ export function registerGameHandlers(io, socket) {
     if (!room || room.status !== 'in_progress') return;
 
     if (accept) {
+      roomManager.stopTimer(room.id);
       room.status = 'finished';
       const eloChanges = recordMatchResult(
         room.players.white.username,
@@ -230,6 +237,8 @@ export function registerGameHandlers(io, socket) {
       room.status = 'in_progress';
       room.moves = [];
       room.rematchRequests.clear();
+      room.timers = { white: 600, black: 600, lastTurnTimestamp: Date.now() };
+      roomManager.startTimer(io, room.id);
 
       io.to(room.id).emit('rematchStarted', {
         roomId: room.id,
@@ -237,6 +246,7 @@ export function registerGameHandlers(io, socket) {
         blackPlayer: room.players.black.username,
         whiteSocketId: room.players.white.socketId,
         blackSocketId: room.players.black.socketId,
+        timers: { white: 600, black: 600 },
         fen: room.chess.fen(),
         turn: room.chess.turn(),
       });

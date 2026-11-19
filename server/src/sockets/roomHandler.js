@@ -66,12 +66,14 @@ export function registerRoomHandlers(io, socket) {
       });
 
       if (isGameStart) {
+        roomManager.startTimer(io, room.id);
         io.to(room.id).emit('gameStart', {
           roomId: room.id,
           whitePlayer: room.players.white.username,
           blackPlayer: room.players.black.username,
           whiteSocketId: room.players.white.socketId,
           blackSocketId: room.players.black.socketId,
+          timers: { white: Math.ceil(room.timers.white), black: Math.ceil(room.timers.black) },
           fen: room.chess.fen(),
           turn: room.chess.turn(),
         });
@@ -133,6 +135,7 @@ export function registerRoomHandlers(io, socket) {
         history: room.chess.history({ verbose: true }),
         whitePlayer: room.players.white.username,
         blackPlayer: room.players.black.username,
+        timers: room.timers ? { white: Math.ceil(room.timers.white), black: Math.ceil(room.timers.black) } : { white: 600, black: 600 },
       });
 
       socket.to(room.id).emit('playerReconnected', {
@@ -180,12 +183,14 @@ export function registerRoomHandlers(io, socket) {
           });
         }
 
+        roomManager.startTimer(io, room.id);
         io.to(room.id).emit('gameStart', {
           roomId: room.id,
           whitePlayer: whitePlayer.username,
           blackPlayer: blackPlayer.username,
           whiteSocketId: whitePlayer.socketId,
           blackSocketId: blackPlayer.socketId,
+          timers: { white: Math.ceil(room.timers.white), black: Math.ceil(room.timers.black) },
           fen: room.chess.fen(),
           turn: room.chess.turn(),
         });
@@ -239,6 +244,7 @@ export function registerRoomHandlers(io, socket) {
             message: `${username} left the room.`,
           });
           if (room.status === 'in_progress') {
+            roomManager.stopTimer(roomId);
             const remainingWinner = role === 'white' ? 'b' : 'w';
             room.status = 'finished';
             const eloChanges = recordMatchResult(
@@ -303,6 +309,7 @@ export function registerRoomHandlers(io, socket) {
       // Start 30-second timer
       room.disconnectTimeout = setTimeout(() => {
         if (room.status === 'in_progress') {
+          roomManager.stopTimer(room.id);
           console.log(`[Forfeit by Disconnect] 30s timer expired in Room ${room.id}. ${disconnectedName} forfeited.`);
           room.status = 'finished';
 

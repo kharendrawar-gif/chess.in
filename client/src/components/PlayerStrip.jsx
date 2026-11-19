@@ -13,6 +13,11 @@ export default function PlayerStrip({
 }) {
   const isWhite = color === 'w';
 
+  const isLowTime = isCurrentTurn && timeRemaining && (
+    timeRemaining.startsWith('0:0') ||
+    (timeRemaining.startsWith('0:') && parseInt(timeRemaining.split(':')[1], 10) < 30)
+  );
+
   return (
     <div className="w-full flex items-center justify-between py-2 px-1 select-none">
       {/* Left: Avatar, Username, Rating & Captured Pieces */}
@@ -65,7 +70,9 @@ export default function PlayerStrip({
       {/* Right: Chess.com Digital Clock */}
       <div
         className={`px-3 py-1.5 rounded-md font-mono text-sm sm:text-base font-bold tracking-wider transition-colors flex items-center gap-1 ${
-          isCurrentTurn
+          isLowTime
+            ? 'bg-red-600 text-white shadow-md animate-pulse'
+            : isCurrentTurn
             ? 'bg-[#ffffff] text-[#21201d] shadow-md'
             : 'bg-[#21201d] text-[#989795] border border-[#3d3b38]'
         }`}

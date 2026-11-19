@@ -28,6 +28,7 @@ export default function OnlineGameView({ activeGame, socket, onLeaveGame }) {
     fen,
     turn,
     myColor,
+    timers,
     isMyTurn,
     selectedSquare,
     legalMoves,
@@ -86,6 +87,14 @@ export default function OnlineGameView({ activeGame, socket, onLeaveGame }) {
     return pairs;
   }, [history]);
 
+  const formatTime = (totalSeconds) => {
+    if (totalSeconds === undefined || totalSeconds === null) return '10:00';
+    const s = Math.max(0, Math.floor(totalSeconds));
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const handleCopyFen = () => {
     navigator.clipboard.writeText(fen);
     setCopiedFen(true);
@@ -103,6 +112,7 @@ export default function OnlineGameView({ activeGame, socket, onLeaveGame }) {
           isCurrentTurn={turn === opponentColor}
           capturedPieces={opponentColor === 'w' ? captured.capturedByWhite : captured.capturedByBlack}
           advantage={opponentColor === 'w' ? Math.max(0, captured.advantage) : Math.max(0, -captured.advantage)}
+          timeRemaining={formatTime(opponentColor === 'w' ? timers?.white : timers?.black)}
           isYou={false}
         />
 
@@ -130,6 +140,7 @@ export default function OnlineGameView({ activeGame, socket, onLeaveGame }) {
           isCurrentTurn={turn === myColor}
           capturedPieces={myColor === 'w' ? captured.capturedByWhite : captured.capturedByBlack}
           advantage={myColor === 'w' ? Math.max(0, captured.advantage) : Math.max(0, -captured.advantage)}
+          timeRemaining={formatTime(myColor === 'w' ? timers?.white : timers?.black)}
           isYou={true}
         />
 

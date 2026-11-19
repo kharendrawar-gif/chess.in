@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js';
+import { recordMatchResult } from '../config/db.js';
 
 class RoomManager {
   constructor() {
@@ -143,6 +144,70 @@ class RoomManager {
     return roomId ? this.rooms.get(roomId) : null;
   }
 
+  startTimer(io, roomId) {
+    const room = this.getRoom(roomId);
+    if (!room) return;
+
+    this.stopTimer(roomId);
+
+    if (!room.timers) {
+      room.timers = { white: 600, black: 600, lastTurnTimestamp: Date.now() };
+    } else {
+      room.timers.lastTurnTimestamp = Date.now();
+    }
+
+    room.timerInterval = setInterval(() => {
+      if (room.status !== 'in_progress') {
+        this.stopTimer(roomId);
+        return;
+      }
+
+      const currentTurn = room.chess.turn(); // 'w' | 'b'
+      if (currentTurn === 'w') {
+        room.timers.white = Math.max(0, room.timers.white - 1);
+      } else {
+        room.timers.black = Math.max(0, room.timers.black - 1);
+      }
+
+      io.to(room.id).emit('timerTick', {
+        white: Math.ceil(room.timers.white),
+        black: Math.ceil(room.timers.black),
+      });
+
+      if (room.timers.white <= 0 || room.timers.black <= 0) {
+        this.stopTimer(roomId);
+        room.status = 'finished';
+
+        const timedOutColor = room.timers.white <= 0 ? 'w' : 'b';
+        const winner = timedOutColor === 'w' ? 'b' : 'w';
+        const timedOutPlayer = timedOutColor === 'w' ? room.players.white?.username : room.players.black?.username;
+        const winningPlayer = winner === 'w' ? room.players.white?.username : room.players.black?.username;
+
+        const eloChanges = recordMatchResult(
+          room.players.white?.username,
+          room.players.black?.username,
+          winner,
+          'timeout'
+        );
+
+        io.to(room.id).emit('gameOver', {
+          winner,
+          reason: 'timeout',
+          eloChanges,
+          message: `${timedOutPlayer} ran out of time! ${winningPlayer} (${winner === 'w' ? 'White' : 'Black'}) wins on time!`,
+        });
+      }
+    }, 1000);
+  }
+
+  stopTimer(roomId) {
+    const room = this.getRoom(roomId);
+    if (room && room.timerInterval) {
+      clearInterval(room.timerInterval);
+      room.timerInterval = null;
+    }
+  }
+
   addChatMessage(roomId, sender, message) {
     const room = this.getRoom(roomId);
     if (!room) return null;
@@ -194,6 +259,7 @@ class RoomManager {
     const blackAbsent = !room.players.black || !room.players.black.connected;
 
     if (whiteAbsent && blackAbsent && room.spectators.length === 0) {
+      this.stopTimer(roomId);
       this.rooms.delete(roomId);
     }
 

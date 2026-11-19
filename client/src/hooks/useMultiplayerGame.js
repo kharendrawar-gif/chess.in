@@ -11,6 +11,9 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
   const [lastMove, setLastMove] = useState(null);
   const [pendingPromotion, setPendingPromotion] = useState(null);
 
+  // 10-Minute Chess Clock Timers (seconds)
+  const [timers, setTimers] = useState(activeGame.timers || { white: 600, black: 600 });
+
   // Status & Game Over state
   const [isGameOver, setIsGameOver] = useState(false);
   const [isCheckmate, setIsCheckmate] = useState(false);
@@ -38,6 +41,25 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
   const [rematchSent, setRematchSent] = useState(false);
 
   const isMyTurn = turn === myColor;
+
+  // Local 1-second countdown for the active player's turn
+  useEffect(() => {
+    if (isGameOver) return;
+
+    const interval = setInterval(() => {
+      setTimers((prev) => {
+        if (!prev) return prev;
+        const currentTurnKey = turn === 'w' ? 'white' : 'black';
+        if (prev[currentTurnKey] <= 0) return prev;
+        return {
+          ...prev,
+          [currentTurnKey]: Math.max(0, prev[currentTurnKey] - 1),
+        };
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [turn, isGameOver]);
 
   // Disconnect countdown interval
   useEffect(() => {
@@ -70,6 +92,7 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
       setLastMove(data.lastMove);
       setHistory(data.history || []);
       if (data.captured) setCaptured(data.captured);
+      if (data.timers) setTimers(data.timers);
 
       setSelectedSquare(null);
       setPendingPromotion(null);
@@ -170,6 +193,7 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
         newColor = myColor === 'w' ? 'b' : 'w';
       }
       setMyColor(newColor);
+      setTimers(data.timers || { white: 600, black: 600 });
 
       setSelectedSquare(null);
       setLastMove(null);
@@ -203,10 +227,17 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
       setTurn(data.turn);
       if (data.color) setMyColor(data.color);
       if (data.history) setHistory(data.history);
+      if (data.timers) setTimers(data.timers);
       setDisconnectTimer(null);
       setDisconnectedOpponent(null);
       setStatusNotification('Reconnected to game successfully!');
       setTimeout(() => setStatusNotification(null), 3000);
+    };
+
+    const handleTimerTick = (data) => {
+      if (data) {
+        setTimers({ white: data.white, black: data.black });
+      }
     };
 
     socket.on('moveMade', handleMoveMade);
@@ -216,6 +247,7 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
     socket.on('playerReconnected', handlePlayerReconnected);
     socket.on('playerLeft', handlePlayerLeft);
     socket.on('reconnectSuccess', handleReconnectSuccess);
+    socket.on('timerTick', handleTimerTick);
     socket.on('drawOffered', handleDrawOffered);
     socket.on('drawDeclined', handleDrawDeclined);
     socket.on('rematchRequested', handleRematchRequested);
@@ -229,6 +261,7 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
       socket.off('playerReconnected', handlePlayerReconnected);
       socket.off('playerLeft', handlePlayerLeft);
       socket.off('reconnectSuccess', handleReconnectSuccess);
+      socket.off('timerTick', handleTimerTick);
       socket.off('drawOffered', handleDrawOffered);
       socket.off('drawDeclined', handleDrawDeclined);
       socket.off('rematchRequested', handleRematchRequested);
@@ -365,6 +398,7 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
     fen,
     turn,
     myColor,
+    timers,
     isMyTurn,
     selectedSquare,
     legalMoves,
