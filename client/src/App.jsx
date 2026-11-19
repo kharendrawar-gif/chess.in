@@ -39,8 +39,21 @@ function ChessApp() {
   const localGame = useChessGame();
 
   const handleGameStart = (gameData) => {
-    const savedName = user?.username || localStorage.getItem('chess_username');
-    const myColor = gameData.whitePlayer === savedName ? 'w' : 'b';
+    let myColor = 'w';
+    if (gameData.whiteSocketId && socket?.id) {
+      myColor = gameData.whiteSocketId === socket.id ? 'w' : 'b';
+    } else if (gameData.blackSocketId && socket?.id) {
+      myColor = gameData.blackSocketId === socket.id ? 'b' : 'w';
+    } else if (currentRoom?.color) {
+      myColor = currentRoom.color;
+    } else {
+      const savedName = user?.username || localStorage.getItem('chess_username');
+      if (savedName) {
+        myColor = gameData.whitePlayer?.toLowerCase() === savedName.toLowerCase() ? 'w' : 'b';
+      } else {
+        myColor = 'w';
+      }
+    }
 
     setActiveGame({
       ...gameData,

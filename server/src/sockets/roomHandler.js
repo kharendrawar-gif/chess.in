@@ -70,6 +70,8 @@ export function registerRoomHandlers(io, socket) {
           roomId: room.id,
           whitePlayer: room.players.white.username,
           blackPlayer: room.players.black.username,
+          whiteSocketId: room.players.white.socketId,
+          blackSocketId: room.players.black.socketId,
           fen: room.chess.fen(),
           turn: room.chess.turn(),
         });
@@ -156,13 +158,34 @@ export function registerRoomHandlers(io, socket) {
         const whiteSocket = io.sockets.sockets.get(whitePlayer.socketId);
         const blackSocket = io.sockets.sockets.get(blackPlayer.socketId);
 
-        if (whiteSocket) whiteSocket.join(room.id);
-        if (blackSocket) blackSocket.join(room.id);
+        if (whiteSocket) {
+          whiteSocket.join(room.id);
+          whiteSocket.emit('roomCreated', {
+            roomId: room.id,
+            color: 'w',
+            username: whitePlayer.username,
+            status: 'in_progress',
+          });
+        }
+        if (blackSocket) {
+          blackSocket.join(room.id);
+          blackSocket.emit('joinedRoom', {
+            roomId: room.id,
+            role: 'black',
+            color: 'b',
+            fen: room.chess.fen(),
+            whitePlayer: whitePlayer.username,
+            blackPlayer: blackPlayer.username,
+            status: 'in_progress',
+          });
+        }
 
         io.to(room.id).emit('gameStart', {
           roomId: room.id,
           whitePlayer: whitePlayer.username,
           blackPlayer: blackPlayer.username,
+          whiteSocketId: whitePlayer.socketId,
+          blackSocketId: blackPlayer.socketId,
           fen: room.chess.fen(),
           turn: room.chess.turn(),
         });
@@ -202,7 +225,45 @@ export function registerRoomHandlers(io, socket) {
     broadcastStats(io);
   });
 
-  // 7. Handle Disconnect with 30-Second Forfeit Grace Period (Milestone 6)
+  // 7. Explicitly leave room / return to lobby
+  socket.on('leaveRoom', () => {
+    try {
+      const result = roomManager.leaveRoom(socket.id);
+      if (result) {
+        const { room, role, username, roomId } = result;
+        socket.leave(roomId);
+        if (room) {
+          socket.to(roomId).emit('playerLeft', {
+            username,
+            role,
+            message: `${username} left the room.`,
+          });
+          if (room.status === 'in_progress') {
+            const remainingWinner = role === 'white' ? 'b' : 'w';
+            room.status = 'finished';
+            const eloChanges = recordMatchResult(
+              room.players.white?.username,
+              room.players.black?.username,
+              remainingWinner,
+              'player left match'
+            );
+            io.to(roomId).emit('gameOver', {
+              winner: remainingWinner,
+              reason: 'player_left',
+              eloChanges,
+              message: `${username} left the match. ${remainingWinner === 'w' ? 'White' : 'Black'} wins!`,
+            });
+          }
+        }
+        io.emit('lobbyUpdated', roomManager.getPublicRooms());
+        broadcastStats(io);
+      }
+    } catch (err) {
+      console.error('Error leaving room:', err);
+    }
+  });
+
+  // 8. Handle Disconnect with 30-Second Forfeit Grace Period (Milestone 6)
   socket.on('disconnect', () => {
     roomManager.removeFromMatchmaking(socket.id);
 

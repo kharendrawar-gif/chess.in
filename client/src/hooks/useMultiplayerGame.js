@@ -161,8 +161,14 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
       setFen(data.fen);
       setTurn(data.turn);
 
-      const savedName = localStorage.getItem('chess_username');
-      const newColor = data.whitePlayer === savedName ? 'w' : 'b';
+      let newColor;
+      if (data.whiteSocketId && socket?.id) {
+        newColor = data.whiteSocketId === socket.id ? 'w' : 'b';
+      } else if (data.blackSocketId && socket?.id) {
+        newColor = data.blackSocketId === socket.id ? 'b' : 'w';
+      } else {
+        newColor = myColor === 'w' ? 'b' : 'w';
+      }
       setMyColor(newColor);
 
       setSelectedSquare(null);
@@ -185,11 +191,31 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
       setTimeout(() => setStatusNotification(null), 4000);
     };
 
+    const handlePlayerLeft = (data) => {
+      setStatusNotification(data.message || 'Opponent left the match.');
+    };
+
+    const handleReconnectSuccess = (data) => {
+      console.log('[Multiplayer] Reconnected to game:', data);
+      const newChess = new Chess(data.fen);
+      setGame(newChess);
+      setFen(data.fen);
+      setTurn(data.turn);
+      if (data.color) setMyColor(data.color);
+      if (data.history) setHistory(data.history);
+      setDisconnectTimer(null);
+      setDisconnectedOpponent(null);
+      setStatusNotification('Reconnected to game successfully!');
+      setTimeout(() => setStatusNotification(null), 3000);
+    };
+
     socket.on('moveMade', handleMoveMade);
     socket.on('moveRejected', handleMoveRejected);
     socket.on('gameOver', handleGameOver);
     socket.on('playerDisconnected', handlePlayerDisconnected);
     socket.on('playerReconnected', handlePlayerReconnected);
+    socket.on('playerLeft', handlePlayerLeft);
+    socket.on('reconnectSuccess', handleReconnectSuccess);
     socket.on('drawOffered', handleDrawOffered);
     socket.on('drawDeclined', handleDrawDeclined);
     socket.on('rematchRequested', handleRematchRequested);
@@ -201,6 +227,8 @@ export function useMultiplayerGame({ activeGame, socket, onLeaveGame }) {
       socket.off('gameOver', handleGameOver);
       socket.off('playerDisconnected', handlePlayerDisconnected);
       socket.off('playerReconnected', handlePlayerReconnected);
+      socket.off('playerLeft', handlePlayerLeft);
+      socket.off('reconnectSuccess', handleReconnectSuccess);
       socket.off('drawOffered', handleDrawOffered);
       socket.off('drawDeclined', handleDrawDeclined);
       socket.off('rematchRequested', handleRematchRequested);

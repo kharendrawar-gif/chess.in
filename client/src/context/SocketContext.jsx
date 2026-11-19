@@ -9,10 +9,12 @@ export function SocketProvider({ children }) {
   const [connectionError, setConnectionError] = useState(null);
 
   useEffect(() => {
-    // Determine backend URL (works locally and in deployment)
+    // Determine backend URL (works locally, in dev server, and in deployment)
+    const isDev = window.location.port === '5173';
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const backendUrl =
       import.meta.env.VITE_BACKEND_URL ||
-      (window.location.hostname === 'localhost' ? 'http://localhost:5000' : window.location.origin);
+      (isDev && isLocal ? `http://${window.location.hostname}:5000` : window.location.origin);
 
     console.log('[Socket] Connecting to server at:', backendUrl);
 

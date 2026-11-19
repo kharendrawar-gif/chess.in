@@ -22,7 +22,11 @@ export default function RoomLobby({ onGameStart, currentRoom, setCurrentRoom }) 
   const { socket, isConnected, connectionError } = useSocket();
 
   const [username, setUsername] = useState(() => {
-    return localStorage.getItem('chess_username') || `Player_${Math.floor(1000 + Math.random() * 9000)}`;
+    const existing = localStorage.getItem('chess_username');
+    if (existing) return existing;
+    const generated = `Player_${Math.floor(1000 + Math.random() * 9000)}`;
+    localStorage.setItem('chess_username', generated);
+    return generated;
   });
   const [joinCode, setJoinCode] = useState('');
   const [errorMsg, setErrorMsg] = useState(null);

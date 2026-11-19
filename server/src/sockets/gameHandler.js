@@ -235,6 +235,8 @@ export function registerGameHandlers(io, socket) {
         roomId: room.id,
         whitePlayer: room.players.white.username,
         blackPlayer: room.players.black.username,
+        whiteSocketId: room.players.white.socketId,
+        blackSocketId: room.players.black.socketId,
         fen: room.chess.fen(),
         turn: room.chess.turn(),
       });
